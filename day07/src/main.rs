@@ -47,6 +47,9 @@ fn match_equation<const N: usize>(
     terms: &mut Vec<u64>,
     ops: [fn(u64, u64) -> u64; N],
 ) -> bool {
+    if acc > ans {
+        return false;
+    }
     if terms.is_empty() {
         return ans == acc;
     }

@@ -1,4 +1,7 @@
-use std::{collections::HashSet, fmt::Debug, ops::Add};
+use std::{
+    collections::HashSet,
+    ops::{Add, Sub},
+};
 
 const INPUT: &'static str = include_str!("../input.txt");
 
@@ -17,20 +20,19 @@ fn part1(input: &'static str) -> usize {
 fn part2(input: &'static str) -> usize {
     let mut g = Grid::new(input);
     let mut run = true;
-    let mut possible = HashSet::new();
+    let mut visited = HashSet::new();
+    let mut cache = HashSet::new();
     while run {
         let next_pos = g.current + g.direction;
-        // TODO: maybe we can filter more to reduce time in cycle detection after
-        if g.get(&next_pos).is_some_and(|c| c != b'#') && g.next_wall_right().is_some() {
-            possible.insert(next_pos);
+        if g.get(&next_pos).is_some_and(|c| c != b'#')
+            && (!cache.contains(&next_pos))
+            && g.will_loop(&mut visited)
+        {
+            cache.insert(next_pos);
         }
         run = g.update_guard().is_some();
     }
-    let mut visited = HashSet::new();
-    possible
-        .into_iter()
-        .filter(|new_wall| g.will_loop(new_wall, &mut visited))
-        .count()
+    cache.len()
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Default, Hash)]
@@ -52,6 +54,12 @@ impl Add for Coord {
         Coord([self.0[0] + rhs.0[0], self.0[1] + rhs.0[1]])
     }
 }
+impl Sub for Coord {
+    type Output = Self;
+    fn sub(self, rhs: Self) -> Self::Output {
+        Coord([self.0[0] - rhs.0[0], self.0[1] - rhs.0[1]])
+    }
+}
 
 struct Grid {
     n: isize,
@@ -61,38 +69,16 @@ struct Grid {
     direction: Coord,
 }
 
-impl Debug for Grid {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(
-            f,
-            "Grid {}x{} cur x {} y {} dir x {} y {}",
-            self.n,
-            self.n,
-            self.current.0[0],
-            self.current.0[1],
-            self.direction.0[0],
-            self.direction.0[1]
-        )?;
-        for y in 0..self.n {
-            for x in 0..self.n {
-                write!(f, "{}", self.get(&Coord([x, y])).unwrap() as char)?;
-            }
-            writeln!(f)?;
-        }
-        Ok(())
-    }
-}
-
 impl Grid {
     fn new(input: &'static str) -> Self {
         let input = input.trim();
         let n = input.lines().count();
         let mut grid = Vec::<u8>::with_capacity(n * n);
-        let mut current = Coord::default();
+        let mut init = Coord::default();
         for (y, line) in input.lines().enumerate() {
             let line = line.as_bytes();
             if let Some(x) = line.iter().position(|&x| x == b'^') {
-                current = Coord([x as isize, y as isize]);
+                init = Coord([x as isize, y as isize]);
             }
             grid.extend(line);
         }
@@ -101,49 +87,37 @@ impl Grid {
         let mut g = Grid {
             n,
             grid,
-            init: current,
-            current,
+            init,
+            current: init,
             direction,
         };
-        g.set(&current, b'X');
+        g.set(&init, b'X');
         g
     }
-    fn will_loop(&mut self, coord: &Coord, set: &mut HashSet<[isize; 4]>) -> bool {
-        self.set(coord, b'#');
-        let mut i = Some(false);
-        while let Some(b) = i {
-            if b && (!set.insert([
-                self.current.0[0],
-                self.current.0[1],
-                self.direction.0[0],
-                self.direction.0[1],
-            ])) {
+    fn will_loop(&mut self, set: &mut HashSet<[Coord; 2]>) -> bool {
+        let new_wall = self.current + self.direction;
+        self.set(&new_wall, b'#');
+        let mut cur = self.init;
+        let mut dir = Coord([0, -1]);
+        let mut looping = true;
+        while set.insert([cur, dir]) {
+            if let Some(c) = self.next_wall(cur, dir) {
+                cur = c - dir;
+                dir = dir.rotate_right();
+            } else {
+                looping = false;
                 break;
             }
-            i = self.update_guard();
         }
-        self.set(coord, b'.');
-        self.reset();
+        self.set(&new_wall, b'.');
         set.clear();
-        i.is_some()
+        looping
     }
-    fn next_wall_right(&self) -> Option<Coord> {
-        let mut coord = self.current;
-        let dir = self.direction.rotate_right();
+    fn next_wall(&self, mut coord: Coord, dir: Coord) -> Option<Coord> {
         while self.get(&coord)? != b'#' {
             coord = coord + dir;
         }
         Some(coord)
-    }
-    fn reset(&mut self) {
-        self.current = self.init;
-        self.direction = Coord([0, -1]);
-        self.grid
-            .iter_mut()
-            .filter(|x| **x == b'X')
-            .for_each(|x| *x = b'.');
-        let init = self.init;
-        self.set(&init, b'X');
     }
     fn update_guard(&mut self) -> Option<bool> {
         let new_pos = self.current + self.direction;

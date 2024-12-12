@@ -60,9 +60,6 @@ impl Coord {
             c => panic!("rotate {:?} not supported", c),
         })
     }
-    const fn dummy() -> Self {
-        Coord([isize::MAX, isize::MAX])
-    }
 }
 
 impl Add for Coord {

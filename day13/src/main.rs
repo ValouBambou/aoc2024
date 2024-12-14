@@ -1,5 +1,3 @@
-use std::ops::{Add, Mul};
-
 const INPUT: &'static str = include_str!("../input.txt");
 
 fn main() {
@@ -38,8 +36,12 @@ fn min_cost(coord_a: [i64; 2], coord_b: [i64; 2], target: [i64; 2]) -> Option<i6
     let [x_a, y_a] = coord_a;
     let [x_b, y_b] = coord_b;
     let [x, y] = target;
+    // 2 equations 2 unknowns => gaussian elimination
+    // x = a * x_a + b * x_b
+    // y = a * y_a + b * y_b
     let num_b = x_a * y - x * y_a;
     let denum_b = x_a * y_b - x_b * y_a;
+    // keep only the integer solutions
     if num_b % denum_b != 0 {
         return None;
     }

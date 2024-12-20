@@ -29,19 +29,43 @@ fn part1(input: &'static str) -> u32 {
     }
     g.dijsktra()
 }
-fn part2(input: &'static str) -> String {
+fn part2(input: &'static str) -> &'static str {
+    let walls = input
+        .trim()
+        .lines()
+        .map(|line| {
+            let (x, y) = line.split_once(',').unwrap();
+            let x: usize = x.parse().unwrap();
+            let y: usize = y.parse().unwrap();
+            x + y * (N as usize)
+        })
+        .collect::<Vec<usize>>();
     let mut g = Grid::new(N);
-    for line in input.trim().lines() {
-        let (x, y) = line.split_once(',').unwrap();
-        let x: usize = x.parse().unwrap();
-        let y: usize = y.parse().unwrap();
-        let i = x + y * (N as usize);
-        g.grid[i] = b'#';
-        if i >= N_FIRST && g.dijsktra() == u32::MAX {
-            return format!("{x},{y}");
+    let mut min = N_FIRST;
+    let mut max = walls.len() - 1;
+    let mut mid = (min + max) / 2;
+    let mut pair = [
+        g.try_dijkstra(&walls[..mid]),
+        g.try_dijkstra(&walls[..(mid + 1)]),
+    ];
+    while pair != [true, false] {
+        match pair {
+            [true, true] => {
+                min = mid;
+                mid = (mid + max) / 2;
+            }
+            [false, false] => {
+                max = mid;
+                mid = (min + mid) / 2;
+            }
+            _ => panic!("wtf"),
         }
+        pair = [
+            g.try_dijkstra(&walls[..mid]),
+            g.try_dijkstra(&walls[..(mid + 1)]),
+        ];
     }
-    String::from("NONE")
+    input.trim().lines().nth(mid).unwrap()
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Hash)]
@@ -66,6 +90,16 @@ struct Grid {
 }
 const END: Coord = Coord([N - 1, N - 1]);
 impl Grid {
+    fn try_dijkstra(&mut self, walls: &[usize]) -> bool {
+        for &i in walls {
+            self.grid[i] = b'#';
+        }
+        let res = self.dijsktra();
+        for &i in walls {
+            self.grid[i] = b'.';
+        }
+        res != u32::MAX
+    }
     fn new(n: i8) -> Self {
         let nu = n as usize;
         let grid = vec![b'.'; nu * nu];

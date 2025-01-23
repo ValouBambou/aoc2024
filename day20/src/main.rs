@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashMap, HashSet, VecDeque},
+    collections::{HashSet, VecDeque},
     ops::{Add, Mul},
 };
 
@@ -129,11 +129,15 @@ impl Grid {
     }
     fn dijsktra_cheat<const N: u32>(&self, base_path: Vec<usize>, cheat_duration: i16) -> u32 {
         let mut cheats = HashSet::new();
-        for (i, &cur) in base_path.iter().enumerate() {
+        let mut table = vec![None; self.grid.len()];
+        for (i, &c) in base_path.iter().enumerate() {
+            table[c] = Some(i);
+        }
+        for (i, cur) in base_path.into_iter().enumerate() {
             let cur_pos = self.pos(cur);
             for (nei_pos, nei) in self.cheat_neighbors(cheat_duration, cur_pos) {
                 let dist = nei_pos.dist(cur_pos);
-                let i2 = base_path.iter().position(|&idx| idx == nei);
+                let i2 = table[nei];
                 if i2.is_some_and(|i2| i2.saturating_sub(i) >= (dist + N) as usize) {
                     cheats.insert([cur_pos, nei_pos]);
                 }
